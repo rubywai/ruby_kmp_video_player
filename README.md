@@ -2,7 +2,7 @@
 
 Ruby KMP Player is a reusable Kotlin Multiplatform video player library.
 
-Repository: https://github.com/rubywai/ruby-kmp-player
+Repository: https://github.com/rubywai/ruby_kmp_video_player
 
 The first version intentionally stays small:
 

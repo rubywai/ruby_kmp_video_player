@@ -57,7 +57,7 @@ mavenPublishing {
         name = "Ruby KMP Player"
         description = "A reusable Kotlin Multiplatform video player library backed by ExoPlayer on Android and AVPlayer on iOS."
         inceptionYear = "2026"
-        url = "https://github.com/rubywai/ruby-kmp-player/"
+        url = "https://github.com/rubywai/ruby_kmp_video_player"
         licenses {
             license {
                 name = "Apache-2.0"
@@ -73,9 +73,9 @@ mavenPublishing {
             }
         }
         scm {
-            url = "https://github.com/rubywai/ruby-kmp-player/"
-            connection = "scm:git:git://github.com/rubywai/ruby-kmp-player.git"
-            developerConnection = "scm:git:ssh://git@github.com/rubywai/ruby-kmp-player.git"
+            url = "https://github.com/rubywai/ruby_kmp_video_player"
+            connection = "scm:git:git://github.com/rubywai/ruby_kmp_video_player.git"
+            developerConnection = "scm:git:ssh://git@github.com/rubywai/ruby_kmp_video_player.git"
         }
     }
 }
