@@ -22,6 +22,7 @@ android {
 
 dependencies {
     implementation(project(":library"))
+    implementation(project(":example:composeApp"))
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.activity.compose)

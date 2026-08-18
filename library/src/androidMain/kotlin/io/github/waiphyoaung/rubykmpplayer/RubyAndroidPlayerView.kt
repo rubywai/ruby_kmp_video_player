@@ -11,6 +11,11 @@ public class RubyAndroidPlayerView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
 ) : PlayerView(context, attrs, defStyleAttr) {
+    init {
+        // RubyVideoPlayer owns the shared Compose controls.
+        useController = false
+    }
+
     public fun bind(controller: RubyAndroidVideoPlayerController) {
         player = controller.exoPlayer
     }

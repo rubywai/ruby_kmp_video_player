@@ -6,6 +6,11 @@ import kotlinx.coroutines.flow.StateFlow
 import platform.AVFoundation.AVPlayer
 import platform.AVKit.AVPlayerViewController
 import platform.Foundation.NSURL
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_load
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_pause
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_play
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_seek
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_stop
 
 @OptIn(ExperimentalForeignApi::class)
 public class RubyIosVideoPlayerController : RubyVideoPlayerController {
@@ -27,35 +32,28 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
             return
         }
 
-        // AVPlayer is retained as the native playback object. The project’s
-        // current Kotlin/Native SDK exposes its selector methods only through
-        // the iOS application source set, so this library keeps the portable
-        // state contract ready for the app-level AVPlayer adapter.
-        @Suppress("UNUSED_VARIABLE")
-        val resolvedUrl = url
-        @Suppress("UNUSED_VARIABLE")
-        val requestedConfig = config
-        @Suppress("UNUSED_VARIABLE")
-        val requestedHeaders = source.headers
+        ruby_av_player_load(avPlayer, url)
         mutableSnapshots.value = snapshot(RubyPlaybackState.Ready)
-        if (config.autoPlay) {
-            play()
-        }
+        if (config.autoPlay) play()
     }
 
     override fun play() {
+        ruby_av_player_play(avPlayer)
         mutableSnapshots.value = snapshot(RubyPlaybackState.Playing)
     }
 
     override fun pause() {
+        ruby_av_player_pause(avPlayer)
         mutableSnapshots.value = snapshot(RubyPlaybackState.Paused)
     }
 
     override fun stop() {
+        ruby_av_player_stop(avPlayer)
         mutableSnapshots.value = RubyPlayerSnapshot()
     }
 
     override fun seekTo(positionMs: Long) {
+        ruby_av_player_seek(avPlayer, positionMs / 1_000.0)
         mutableSnapshots.value = snapshot(mutableSnapshots.value.state, positionMs = positionMs)
     }
 
@@ -64,7 +62,10 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
     }
 
     public fun createPlayerViewController(): AVPlayerViewController =
-        AVPlayerViewController().also { it.player = avPlayer }
+        AVPlayerViewController().also {
+            it.player = avPlayer
+            it.showsPlaybackControls = false
+        }
 
     private fun snapshot(
         state: RubyPlaybackState,
