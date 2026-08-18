@@ -1,0 +1,6 @@
+language = Objective-C
+headers = RubyAVPlayerBridge.h
+staticLibraries = libRubyAVPlayerBridge.a
+libraryPaths = build/ruby-avplayer-bridge/arm64-apple-ios15.0-simulator
+package = io.github.waiphyoaung.rubykmpplayer.bridge
+compilerOpts = -Isrc/nativeInterop/cinterop

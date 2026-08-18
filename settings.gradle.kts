@@ -15,4 +15,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "ruby-kmp-player"
 include(":library")
-include(":example")
+include(":example:androidApp")
+include(":example:composeApp")
