@@ -28,8 +28,15 @@ val source = RubyVideoSource(
 val config = RubyPlayerConfig(
     autoPlay = true,
     looping = false,
+    startPositionMs = 0L,
+    volume = 1f,
+    playbackSpeed = 1f,
 )
 ```
+
+`volume` must be between `0f` and `1f`. `playbackSpeed` must be greater than
+`0f`, and `startPositionMs` must not be negative. These options are applied by
+the Android ExoPlayer and iOS AVPlayer implementations.
 
 Shared application code should depend on the common `RubyVideoPlayerController`
 interface and observe `snapshots`.
@@ -43,8 +50,22 @@ interface RubyVideoPlayerController {
     fun pause()
     fun stop()
     fun seekTo(positionMs: Long)
+    fun setVolume(value: Float)
+    fun setPlaybackSpeed(value: Float)
+    fun setLooping(enabled: Boolean)
+    fun restart()
     fun release()
 }
+```
+
+Playback settings can also be changed while the current item is loaded. The
+controller exposes the current values through `RubyPlayerSnapshot`.
+
+```kotlin
+controller.setVolume(0.5f)
+controller.setPlaybackSpeed(1.25f)
+controller.setLooping(true)
+controller.restart()
 ```
 
 ## Shared Compose Player

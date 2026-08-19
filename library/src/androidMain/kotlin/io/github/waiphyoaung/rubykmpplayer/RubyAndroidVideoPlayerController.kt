@@ -31,6 +31,9 @@ public class RubyAndroidVideoPlayerController(
     private val mutableSnapshots = MutableStateFlow(RubyPlayerSnapshot())
     private var progressJob: Job? = null
     private var userPaused = false
+    private var volume = 1f
+    private var playbackSpeed = 1f
+    private var looping = false
 
     public val exoPlayer: ExoPlayer = ExoPlayer.Builder(appContext).build()
 
@@ -71,7 +74,12 @@ public class RubyAndroidVideoPlayerController(
     private fun loadOnMain(source: RubyVideoSource, config: RubyPlayerConfig) {
         mutableSnapshots.value = RubyPlayerSnapshot(state = RubyPlaybackState.Loading)
         userPaused = false
-        exoPlayer.repeatMode = if (config.looping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        volume = config.volume
+        playbackSpeed = config.playbackSpeed
+        looping = config.looping
+        exoPlayer.repeatMode = if (looping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        exoPlayer.volume = volume
+        exoPlayer.setPlaybackSpeed(playbackSpeed)
 
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setDefaultRequestProperties(source.headers)
@@ -134,6 +142,41 @@ public class RubyAndroidVideoPlayerController(
         }
     }
 
+    override fun setVolume(value: Float) {
+        require(value in 0f..1f) { "volume must be between 0 and 1" }
+        scope.launch {
+            volume = value
+            exoPlayer.volume = value
+            publishSnapshot()
+        }
+    }
+
+    override fun setPlaybackSpeed(value: Float) {
+        require(value > 0f) { "playbackSpeed must be greater than 0" }
+        scope.launch {
+            playbackSpeed = value
+            exoPlayer.setPlaybackSpeed(value)
+            publishSnapshot()
+        }
+    }
+
+    override fun setLooping(enabled: Boolean) {
+        scope.launch {
+            looping = enabled
+            exoPlayer.repeatMode = if (enabled) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            publishSnapshot()
+        }
+    }
+
+    override fun restart() {
+        scope.launch {
+            userPaused = false
+            exoPlayer.seekTo(0L)
+            exoPlayer.play()
+            publishSnapshot()
+        }
+    }
+
     override fun release() {
         scope.launch {
             stopOnMain()
@@ -184,6 +227,9 @@ public class RubyAndroidVideoPlayerController(
         durationMs = exoPlayer.duration.sanitizeTime(),
         positionMs = exoPlayer.currentPosition.sanitizeTime(),
         bufferedPositionMs = exoPlayer.bufferedPosition.sanitizeTime(),
+        volume = volume,
+        playbackSpeed = playbackSpeed,
+        looping = looping,
         errorMessage = errorMessage,
     )
 

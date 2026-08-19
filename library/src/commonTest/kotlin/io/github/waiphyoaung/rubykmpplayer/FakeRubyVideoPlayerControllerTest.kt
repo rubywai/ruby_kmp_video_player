@@ -22,6 +22,17 @@ class FakeRubyVideoPlayerControllerTest {
         controller.seekTo(1_000L)
         assertEquals(1_000L, controller.snapshots.value.positionMs)
 
+        controller.setVolume(0.5f)
+        controller.setPlaybackSpeed(1.5f)
+        controller.setLooping(true)
+        assertEquals(0.5f, controller.snapshots.value.volume)
+        assertEquals(1.5f, controller.snapshots.value.playbackSpeed)
+        assertEquals(true, controller.snapshots.value.looping)
+
+        controller.restart()
+        assertEquals(0L, controller.snapshots.value.positionMs)
+        assertEquals(RubyPlaybackState.Playing, controller.snapshots.value.state)
+
         controller.stop()
         assertEquals(RubyPlaybackState.Idle, controller.snapshots.value.state)
     }
@@ -52,6 +63,25 @@ private class FakeRubyVideoPlayerController : RubyVideoPlayerController {
 
     override fun seekTo(positionMs: Long) {
         mutableSnapshots.value = mutableSnapshots.value.copy(positionMs = positionMs)
+    }
+
+    override fun setVolume(value: Float) {
+        mutableSnapshots.value = mutableSnapshots.value.copy(volume = value)
+    }
+
+    override fun setPlaybackSpeed(value: Float) {
+        mutableSnapshots.value = mutableSnapshots.value.copy(playbackSpeed = value)
+    }
+
+    override fun setLooping(enabled: Boolean) {
+        mutableSnapshots.value = mutableSnapshots.value.copy(looping = enabled)
+    }
+
+    override fun restart() {
+        mutableSnapshots.value = mutableSnapshots.value.copy(
+            state = RubyPlaybackState.Playing,
+            positionMs = 0L,
+        )
     }
 
     override fun release() {
