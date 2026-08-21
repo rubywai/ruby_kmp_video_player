@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "io.github.rubywai"
-version = "1.1.0"
+version = "1.1.1"
 
 val bridgeSource = layout.projectDirectory.file("src/nativeInterop/cinterop/RubyAVPlayerBridge.m")
 val bridgeOutputDirectory = layout.buildDirectory.dir("ruby-avplayer-bridge")
@@ -101,11 +101,11 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
-            implementation(compose.runtime)
+            api(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
-            implementation(compose.ui)
+            api(compose.ui)
         }
 
         androidMain.dependencies {
@@ -124,7 +124,9 @@ kotlin {
 mavenPublishing {
     publishToMavenCentral()
 
-    signAllPublications()
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
 
     coordinates(group.toString(), "ruby-kmp-player", version.toString())
 

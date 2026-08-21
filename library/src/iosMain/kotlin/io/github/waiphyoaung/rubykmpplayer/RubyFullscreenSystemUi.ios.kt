@@ -8,7 +8,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-public actual fun RubyFullscreenSystemUi() {
+internal actual fun RubyFullscreenSystemUi() {
     DisposableEffect(Unit) {
         ruby_request_landscape_orientation()
         onDispose { ruby_request_portrait_orientation() }

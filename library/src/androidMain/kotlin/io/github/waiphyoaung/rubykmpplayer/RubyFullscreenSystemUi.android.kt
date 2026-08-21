@@ -10,7 +10,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
-public actual fun RubyFullscreenSystemUi() {
+internal actual fun RubyFullscreenSystemUi() {
     val activity = LocalContext.current.findActivity() ?: return
 
     DisposableEffect(activity) {

@@ -20,6 +20,31 @@ Picture in Picture, notifications, and fully custom control slots are not part o
 
 ## Common API
 
+Add the library to the shared source set of your Compose Multiplatform app:
+
+```kotlin
+commonMain.dependencies {
+    implementation("io.github.rubywai:ruby-kmp-player:1.1.1")
+}
+```
+
+Then play a URL directly from shared Compose code. The library creates, loads,
+observes, and releases the Android or iOS player internally.
+
+```kotlin
+@Composable
+fun App() {
+    RubyVideoPlayer(
+        url = "https://example.com/video.mp4",
+    )
+}
+```
+
+No platform controller, `androidMain`, `iosMain`, or native interop code is
+required in the consuming application.
+
+### Configuration
+
 ```kotlin
 val source = RubyVideoSource(
     url = "https://example.com/video.mp4",
@@ -38,8 +63,8 @@ val config = RubyPlayerConfig(
 `0f`, and `startPositionMs` must not be negative. These options are applied by
 the Android ExoPlayer and iOS AVPlayer implementations.
 
-Shared application code should depend on the common `RubyVideoPlayerController`
-interface and observe `snapshots`.
+The controller API remains available for advanced integrations that need
+direct playback commands, custom headers, or snapshot observation.
 
 ```kotlin
 interface RubyVideoPlayerController {
@@ -71,13 +96,13 @@ controller.restart()
 
 ## Shared Compose Player
 
-The library provides the reusable player UI. Applications only create the
-platform controller and configure the controls they want to show.
+The URL overload can be configured entirely from shared code:
 
 ```kotlin
 RubyVideoPlayer(
-    controller = controller,
+    url = "https://example.com/video.mp4",
     modifier = Modifier.fillMaxWidth().height(240.dp),
+    config = RubyPlayerConfig(autoPlay = true),
     controls = RubyPlayerControls(
         showPlayPause = true,
         showMute = true,
@@ -91,11 +116,71 @@ RubyVideoPlayer(
 )
 ```
 
+Advanced users can pass a caller-managed `RubyVideoPlayerController` to the
+existing controller overload instead.
+
 When enabled, controls hide after five seconds while playback is active. A
 tap on the video shows or hides them, and any control interaction resets the
 timer. Controls remain visible while loading, paused, or displaying an error.
 
+### Fullscreen and controls
+
+Fullscreen is enabled by default. The player opens a borderless fullscreen
+dialog, hides the Android system bars, and requests landscape orientation on
+Android and iOS. Closing fullscreen restores the previous Android system UI
+and orientation and requests portrait orientation on iOS.
+
+```kotlin
+RubyVideoPlayer(
+    url = "https://example.com/video.mp4",
+    controls = RubyPlayerControls(
+        showFullscreen = true,
+        showPlayPause = true,
+        showMute = true,
+        showSeekBar = true,
+        showStop = false,
+        showStatus = true,
+        autoHide = true,
+        autoHideDelayMillis = 5_000L,
+    ),
+)
+```
+
+Set `showFullscreen = false` when the host application manages fullscreen or
+orientation itself. `RubyPlayerControls` controls button visibility and
+auto-hide behavior; playback settings such as autoplay, looping, volume, and
+speed belong in `RubyPlayerConfig`.
+
 ## Android
+
+### Consumer setup
+
+Remote video playback requires internet permission in the Android application
+manifest, usually `androidApp/src/main/AndroidManifest.xml`:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- application components -->
+    </application>
+</manifest>
+```
+
+To avoid recreating the activity when the built-in fullscreen control changes
+orientation, let the activity handle orientation and screen-size changes:
+
+```xml
+<activity
+    android:name=".MainActivity"
+    android:configChanges="orientation|screenSize"
+    android:exported="true" />
+```
+
+Use HTTPS video URLs. Android blocks cleartext HTTP traffic by default on
+modern target SDKs; if HTTP is unavoidable, configure a narrowly scoped
+Network Security Configuration in the consuming application.
 
 The repository includes a runnable Compose Multiplatform example under
 `example/`. The Android launcher is `:example:androidApp`, and the shared
@@ -105,8 +190,7 @@ Compose application is `:example:composeApp`.
 ./gradlew :example:androidApp:installDebug
 ```
 
-Create a controller with an Android `Context` and pass it to
-`RubyVideoPlayer`.
+For advanced controller-based use on Android:
 
 ```kotlin
 val controller = RubyAndroidVideoPlayerController(context)
@@ -144,6 +228,36 @@ Xcode host app and run the generated framework.
 - A compatible iOS Simulator runtime when running on Simulator
 - An Apple Developer team and a registered device when running on a physical iPhone or iPad
 
+### Consumer setup
+
+HTTPS video URLs work with the default App Transport Security policy. Plain
+HTTP URLs require an appropriate domain-specific ATS exception in the
+consumer's `Info.plist`; broad `NSAllowsArbitraryLoads` exceptions are not
+recommended.
+
+For the built-in fullscreen button to rotate the player, include portrait and
+landscape orientations in the iOS application `Info.plist`:
+
+```xml
+<key>UISupportedInterfaceOrientations</key>
+<array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+</array>
+<key>UISupportedInterfaceOrientations~ipad</key>
+<array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+</array>
+```
+
+If the host app intentionally supports portrait only, set
+`RubyPlayerControls(showFullscreen = false)` and manage fullscreen in the host.
+Consumers do not need to add native interop files; the published iOS artifacts
+contain the AVPlayer implementation and bridge.
+
 The project uses a manually maintained Xcode host app because the shared
 Compose framework is generated by Gradle. Build the framework before opening
 the Xcode project:
@@ -166,8 +280,7 @@ For a physical device, select your Apple Developer team under the Xcode target
 Signing & Capabilities settings. The example requests network access because
 the default video is loaded from an HTTPS URL.
 
-Create a controller and pass it to `RubyVideoPlayer`. The iOS implementation
-uses AVPlayer for playback.
+For advanced controller-based use on iOS, the implementation uses AVPlayer:
 
 ```kotlin
 val controller = RubyIosVideoPlayerController()

@@ -7,7 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-public actual fun RubyNativePlayerSurface(
+internal actual fun RubyNativePlayerSurface(
     controller: RubyVideoPlayerController,
     modifier: Modifier,
 ) {

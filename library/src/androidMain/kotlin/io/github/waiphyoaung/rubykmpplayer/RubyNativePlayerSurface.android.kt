@@ -5,7 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 
 @Composable
-public actual fun RubyNativePlayerSurface(
+internal actual fun RubyNativePlayerSurface(
     controller: RubyVideoPlayerController,
     modifier: Modifier,
 ) {

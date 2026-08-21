@@ -28,6 +28,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,14 +44,48 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 @Composable
-public expect fun RubyNativePlayerSurface(
+internal expect fun RubyNativePlayerSurface(
     controller: RubyVideoPlayerController,
     modifier: Modifier,
 )
 
 @Composable
-public expect fun RubyFullscreenSystemUi()
+internal expect fun RubyFullscreenSystemUi()
 
+@Composable
+internal expect fun rememberRubyVideoPlayerController(): RubyVideoPlayerController
+
+/**
+ * Plays [url] with a controller owned by this composable.
+ *
+ * The appropriate Android or iOS controller is created, loaded, observed, and
+ * released by the library. Use the controller overload when direct playback
+ * control or custom source headers are required.
+ */
+@Composable
+public fun RubyVideoPlayer(
+    url: String,
+    modifier: Modifier = Modifier,
+    config: RubyPlayerConfig = RubyPlayerConfig(),
+    controls: RubyPlayerControls = RubyPlayerControls(),
+) {
+    val controller = rememberRubyVideoPlayerController()
+
+    LaunchedEffect(controller, url, config) {
+        controller.load(RubyVideoSource(url), config)
+    }
+    DisposableEffect(controller) {
+        onDispose(controller::release)
+    }
+
+    RubyVideoPlayer(
+        controller = controller,
+        modifier = modifier,
+        controls = controls,
+    )
+}
+
+/** Displays the shared player UI for a caller-managed platform controller. */
 @Composable
 public fun RubyVideoPlayer(
     controller: RubyVideoPlayerController,
