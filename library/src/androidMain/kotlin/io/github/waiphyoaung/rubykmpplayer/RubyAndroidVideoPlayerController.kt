@@ -32,6 +32,7 @@ public class RubyAndroidVideoPlayerController(
     private var progressJob: Job? = null
     private var userPaused = false
     private var volume = 1f
+    private var muted = false
     private var playbackSpeed = 1f
     private var looping = false
 
@@ -75,10 +76,11 @@ public class RubyAndroidVideoPlayerController(
         mutableSnapshots.value = RubyPlayerSnapshot(state = RubyPlaybackState.Loading)
         userPaused = false
         volume = config.volume
+        muted = false
         playbackSpeed = config.playbackSpeed
         looping = config.looping
         exoPlayer.repeatMode = if (looping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-        exoPlayer.volume = volume
+        exoPlayer.volume = if (muted) 0f else volume
         exoPlayer.setPlaybackSpeed(playbackSpeed)
 
         val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -146,7 +148,15 @@ public class RubyAndroidVideoPlayerController(
         require(value in 0f..1f) { "volume must be between 0 and 1" }
         scope.launch {
             volume = value
-            exoPlayer.volume = value
+            exoPlayer.volume = if (muted) 0f else value
+            publishSnapshot()
+        }
+    }
+
+    override fun setMuted(enabled: Boolean) {
+        scope.launch {
+            muted = enabled
+            exoPlayer.volume = if (enabled) 0f else volume
             publishSnapshot()
         }
     }
@@ -228,6 +238,7 @@ public class RubyAndroidVideoPlayerController(
         positionMs = exoPlayer.currentPosition.sanitizeTime(),
         bufferedPositionMs = exoPlayer.bufferedPosition.sanitizeTime(),
         volume = volume,
+        muted = muted,
         playbackSpeed = playbackSpeed,
         looping = looping,
         errorMessage = errorMessage,

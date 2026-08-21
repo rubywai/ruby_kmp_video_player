@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -25,6 +28,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -76,9 +81,45 @@ private fun PlayerFrame(
     onExitFullscreen: () -> Unit,
     fullscreen: Boolean,
 ) {
+    var controlsVisible by remember { mutableStateOf(true) }
+    var interactionVersion by remember { mutableStateOf(0) }
+
+    LaunchedEffect(
+        snapshot.state,
+        controls.autoHide,
+        controls.autoHideDelayMillis,
+        interactionVersion,
+    ) {
+        if (snapshot.state != RubyPlaybackState.Playing || !controls.autoHide) {
+            controlsVisible = true
+        } else {
+            kotlinx.coroutines.delay(controls.autoHideDelayMillis.coerceAtLeast(0L))
+            controlsVisible = false
+        }
+    }
+
+    fun registerInteraction() {
+        controlsVisible = true
+        interactionVersion++
+    }
+
     val content: @Composable (Modifier) -> Unit = { surfaceModifier ->
         Box(surfaceModifier.background(Color.Black)) {
             RubyNativePlayerSurface(controller, Modifier.fillMaxSize())
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(snapshot.state, controls.autoHide) {
+                        detectTapGestures {
+                            if (snapshot.state == RubyPlaybackState.Playing) {
+                                controlsVisible = !controlsVisible
+                            } else {
+                                controlsVisible = true
+                            }
+                            interactionVersion++
+                        }
+                    },
+            )
             if (snapshot.state == RubyPlaybackState.Loading || snapshot.state == RubyPlaybackState.Buffering) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
             }
@@ -89,18 +130,21 @@ private fun PlayerFrame(
                     color = Color.White,
                 )
             }
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-                if (controls.showSeekBar) {
-                    SeekBar(snapshot, controller)
+            if (controlsVisible || snapshot.state != RubyPlaybackState.Playing) {
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+                    if (controls.showSeekBar) {
+                        SeekBar(snapshot, controller, ::registerInteraction)
+                    }
+                    ControlBar(
+                        snapshot = snapshot,
+                        controller = controller,
+                        controls = controls,
+                        onFullscreen = onFullscreen,
+                        onExitFullscreen = onExitFullscreen,
+                        fullscreen = fullscreen,
+                        onInteraction = ::registerInteraction,
+                    )
                 }
-                ControlBar(
-                    snapshot = snapshot,
-                    controller = controller,
-                    controls = controls,
-                    onFullscreen = onFullscreen,
-                    onExitFullscreen = onExitFullscreen,
-                    fullscreen = fullscreen,
-                )
             }
         }
     }
@@ -120,11 +164,18 @@ private fun PlayerFrame(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SeekBar(snapshot: RubyPlayerSnapshot, controller: RubyVideoPlayerController) {
+private fun SeekBar(
+    snapshot: RubyPlayerSnapshot,
+    controller: RubyVideoPlayerController,
+    onInteraction: () -> Unit,
+) {
     val duration = snapshot.durationMs.coerceAtLeast(1L)
     Slider(
         value = snapshot.positionMs.coerceIn(0L, duration).toFloat(),
-        onValueChange = { controller.seekTo(it.toLong()) },
+        onValueChange = {
+            onInteraction()
+            controller.seekTo(it.toLong())
+        },
         valueRange = 0f..duration.toFloat(),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(20.dp),
         thumb = {
@@ -151,6 +202,7 @@ private fun ControlBar(
     onFullscreen: () -> Unit,
     onExitFullscreen: () -> Unit,
     fullscreen: Boolean,
+    onInteraction: () -> Unit,
 ) {
     Surface(color = Color.Black.copy(alpha = 0.58f)) {
         Row(
@@ -161,6 +213,7 @@ private fun ControlBar(
             if (controls.showPlayPause) {
                 IconButton(
                     onClick = {
+                        onInteraction()
                         if (snapshot.state == RubyPlaybackState.Playing) controller.pause() else controller.play()
                     },
                 ) {
@@ -172,8 +225,23 @@ private fun ControlBar(
                 }
             }
             if (controls.showStop) {
-                IconButton(onClick = controller::stop) {
+                IconButton(onClick = {
+                    onInteraction()
+                    controller.stop()
+                }) {
                     Icon(Icons.Filled.Stop, contentDescription = "Stop", tint = Color.White)
+                }
+            }
+            if (controls.showMute) {
+                IconButton(onClick = {
+                    onInteraction()
+                    controller.setMuted(!snapshot.muted)
+                }) {
+                    Icon(
+                        imageVector = if (snapshot.muted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp,
+                        contentDescription = if (snapshot.muted) "Unmute" else "Mute",
+                        tint = Color.White,
+                    )
                 }
             }
             if (controls.showStatus) {
@@ -184,7 +252,10 @@ private fun ControlBar(
                 )
             }
             if (controls.showFullscreen) {
-                IconButton(onClick = if (fullscreen) onExitFullscreen else onFullscreen) {
+                IconButton(onClick = {
+                    onInteraction()
+                    if (fullscreen) onExitFullscreen() else onFullscreen()
+                }) {
                     Icon(
                         imageVector = if (fullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
                         contentDescription = if (fullscreen) "Exit fullscreen" else "Fullscreen",

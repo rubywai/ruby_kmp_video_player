@@ -4,6 +4,16 @@
 
 static const void *RubyLoopObserverKey = &RubyLoopObserverKey;
 
+static UIWindowScene *ruby_active_window_scene(void) {
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if ([scene isKindOfClass:[UIWindowScene class]] &&
+            scene.activationState == UISceneActivationStateForegroundActive) {
+            return (UIWindowScene *)scene;
+        }
+    }
+    return nil;
+}
+
 void ruby_av_player_configure_audio_session(void) {
     AVAudioSession *session = [AVAudioSession sharedInstance];
     [session setCategory:AVAudioSessionCategoryPlayback
@@ -11,6 +21,38 @@ void ruby_av_player_configure_audio_session(void) {
                  options:AVAudioSessionCategoryOptionAllowBluetoothA2DP
                    error:nil];
     [session setActive:YES error:nil];
+}
+
+void ruby_request_landscape_orientation(void) {
+    UIWindowScene *scene = ruby_active_window_scene();
+    if (@available(iOS 16.0, *)) {
+        if (scene != nil) {
+            UIWindowSceneGeometryPreferencesIOS *preferences =
+                [[UIWindowSceneGeometryPreferencesIOS alloc]
+                    initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape];
+            [scene requestGeometryUpdateWithPreferences:preferences errorHandler:nil];
+            return;
+        }
+    }
+    UIDevice *device = [UIDevice currentDevice];
+    [device setValue:@(UIDeviceOrientationLandscapeRight) forKey:@"orientation"];
+    [UIViewController attemptRotationToDeviceOrientation];
+}
+
+void ruby_request_portrait_orientation(void) {
+    UIWindowScene *scene = ruby_active_window_scene();
+    if (@available(iOS 16.0, *)) {
+        if (scene != nil) {
+            UIWindowSceneGeometryPreferencesIOS *preferences =
+                [[UIWindowSceneGeometryPreferencesIOS alloc]
+                    initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
+            [scene requestGeometryUpdateWithPreferences:preferences errorHandler:nil];
+            return;
+        }
+    }
+    UIDevice *device = [UIDevice currentDevice];
+    [device setValue:@(UIDeviceOrientationPortrait) forKey:@"orientation"];
+    [UIViewController attemptRotationToDeviceOrientation];
 }
 
 void ruby_av_player_load(AVPlayer *player, NSURL *url) {
@@ -94,4 +136,8 @@ double ruby_av_player_buffered_position_seconds(AVPlayer *player) {
     }
     CMTimeRange range = [item.loadedTimeRanges.lastObject CMTimeRangeValue];
     return ruby_av_player_seconds(CMTimeRangeGetEnd(range));
+}
+
+int ruby_av_player_item_status(AVPlayer *player) {
+    return (int)player.currentItem.status;
 }

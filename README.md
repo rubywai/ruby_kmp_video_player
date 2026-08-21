@@ -4,7 +4,7 @@ Ruby KMP Player is a reusable Kotlin Multiplatform video player library.
 
 Repository: https://github.com/rubywai/ruby_kmp_video_player
 
-The first version intentionally stays small:
+Current scope:
 
 - Android playback through AndroidX Media3 ExoPlayer
 - iOS playback through AVPlayer
@@ -12,7 +12,7 @@ The first version intentionally stays small:
 - play, pause, stop, seek, and release controls
 - observable playback snapshots with `StateFlow`
 - shared Compose Multiplatform player UI
-- built-in play/pause, seek bar, stop, status, buffering, error, and fullscreen controls
+- built-in play/pause, mute, seek bar, stop, status, buffering, error, and fullscreen controls
 - configurable control visibility
 
 Advanced Better Player style features such as cache, DRM, subtitles, playlist,
@@ -51,6 +51,7 @@ interface RubyVideoPlayerController {
     fun stop()
     fun seekTo(positionMs: Long)
     fun setVolume(value: Float)
+    fun setMuted(enabled: Boolean)
     fun setPlaybackSpeed(value: Float)
     fun setLooping(enabled: Boolean)
     fun restart()
@@ -79,13 +80,20 @@ RubyVideoPlayer(
     modifier = Modifier.fillMaxWidth().height(240.dp),
     controls = RubyPlayerControls(
         showPlayPause = true,
+        showMute = true,
         showSeekBar = true,
         showStop = false,
         showFullscreen = true,
         showStatus = true,
+        autoHide = true,
+        autoHideDelayMillis = 5_000L,
     ),
 )
 ```
+
+When enabled, controls hide after five seconds while playback is active. A
+tap on the video shows or hides them, and any control interaction resets the
+timer. Controls remain visible while loading, paused, or displaying an error.
 
 ## Android
 
@@ -159,8 +167,7 @@ Signing & Capabilities settings. The example requests network access because
 the default video is loaded from an HTTPS URL.
 
 Create a controller and pass it to `RubyVideoPlayer`. The iOS implementation
-uses AVPlayer through a small Objective-C AVFoundation bridge for URL loading,
-play, pause, stop, and seek.
+uses AVPlayer for playback.
 
 ```kotlin
 val controller = RubyIosVideoPlayerController()
@@ -168,19 +175,5 @@ controller.load(source, config)
 ```
 
 The shared Compose controls own play/pause, seeking, status, buffering, error,
-and fullscreen behavior. Native AVPlayer playback controls are disabled to
-avoid duplicate controls.
-
-## Future Improvements
-
-Planned improvements after the initial player is stable on Android and iOS:
-
-- Complete iOS AVPlayer observation for duration, position, buffering, and playback errors
-- Apply iOS request headers, looping, and start-position configuration
-- Marshal all iOS player operations onto the main thread
-- Add customizable Compose control slots, themes, and control-bar layouts
-- Improve fullscreen behavior and orientation handling on iOS
-- Add HLS-specific playback configuration and error handling
-- Add subtitles, playlists, and track selection
-- Add caching, DRM, and Picture in Picture
-- Add notifications and background playback support where supported by each platform
+fullscreen, and auto-hide behavior. Native AVPlayer playback controls are
+disabled to avoid duplicate controls.

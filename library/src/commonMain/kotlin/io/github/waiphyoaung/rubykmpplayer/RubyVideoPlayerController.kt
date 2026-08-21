@@ -20,6 +20,8 @@ public interface RubyVideoPlayerController {
 
     public fun setVolume(value: Float)
 
+    public fun setMuted(enabled: Boolean)
+
     public fun setPlaybackSpeed(value: Float)
 
     public fun setLooping(enabled: Boolean)

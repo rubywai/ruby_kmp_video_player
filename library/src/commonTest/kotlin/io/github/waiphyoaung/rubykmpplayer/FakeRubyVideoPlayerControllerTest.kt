@@ -23,9 +23,11 @@ class FakeRubyVideoPlayerControllerTest {
         assertEquals(1_000L, controller.snapshots.value.positionMs)
 
         controller.setVolume(0.5f)
+        controller.setMuted(true)
         controller.setPlaybackSpeed(1.5f)
         controller.setLooping(true)
         assertEquals(0.5f, controller.snapshots.value.volume)
+        assertEquals(true, controller.snapshots.value.muted)
         assertEquals(1.5f, controller.snapshots.value.playbackSpeed)
         assertEquals(true, controller.snapshots.value.looping)
 
@@ -67,6 +69,10 @@ private class FakeRubyVideoPlayerController : RubyVideoPlayerController {
 
     override fun setVolume(value: Float) {
         mutableSnapshots.value = mutableSnapshots.value.copy(volume = value)
+    }
+
+    override fun setMuted(enabled: Boolean) {
+        mutableSnapshots.value = mutableSnapshots.value.copy(muted = enabled)
     }
 
     override fun setPlaybackSpeed(value: Float) {

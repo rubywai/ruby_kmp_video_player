@@ -6,6 +6,7 @@ public data class RubyPlayerSnapshot(
     val positionMs: Long = 0L,
     val bufferedPositionMs: Long = 0L,
     val volume: Float = 1f,
+    val muted: Boolean = false,
     val playbackSpeed: Float = 1f,
     val looping: Boolean = false,
     val errorMessage: String? = null,

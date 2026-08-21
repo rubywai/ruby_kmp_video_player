@@ -20,6 +20,7 @@ import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_buffered_positi
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_duration_seconds
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_pause
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_position_seconds
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_item_status
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_play
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_seek
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_set_rate
@@ -33,8 +34,10 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
     private val mutableSnapshots = MutableStateFlow(RubyPlayerSnapshot())
     private var progressJob: Job? = null
     private var volume = 1f
+    private var muted = false
     private var playbackSpeed = 1f
     private var looping = false
+    private var playRequested = false
 
     public val avPlayer: AVPlayer = AVPlayer()
 
@@ -46,6 +49,7 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
 
     override fun load(source: RubyVideoSource, config: RubyPlayerConfig) {
         mutableSnapshots.value = RubyPlayerSnapshot(state = RubyPlaybackState.Loading)
+        ruby_av_player_configure_audio_session()
 
         val url = NSURL.URLWithString(source.url)
         if (url == null) {
@@ -58,28 +62,40 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
 
         ruby_av_player_load(avPlayer, url)
         volume = config.volume
+        muted = false
         playbackSpeed = config.playbackSpeed
         looping = config.looping
-        ruby_av_player_set_volume(avPlayer, config.volume)
+        ruby_av_player_set_volume(avPlayer, if (muted) 0f else config.volume)
         ruby_av_player_set_rate(avPlayer, playbackSpeed)
         ruby_av_player_set_looping(avPlayer, looping)
-        mutableSnapshots.value = snapshot(RubyPlaybackState.Ready)
+        playRequested = config.autoPlay
         startProgressUpdates()
-        if (config.autoPlay) play()
+        if (playRequested) {
+            ruby_av_player_play(avPlayer)
+        }
     }
 
     override fun play() {
+        playRequested = true
         ruby_av_player_play(avPlayer)
         ruby_av_player_set_rate(avPlayer, playbackSpeed)
-        mutableSnapshots.value = snapshot(RubyPlaybackState.Playing)
+        mutableSnapshots.value = snapshot(
+            if (ruby_av_player_item_status(avPlayer) == AV_PLAYER_ITEM_READY) {
+                RubyPlaybackState.Playing
+            } else {
+                RubyPlaybackState.Loading
+            },
+        )
     }
 
     override fun pause() {
+        playRequested = false
         ruby_av_player_pause(avPlayer)
         mutableSnapshots.value = snapshot(RubyPlaybackState.Paused)
     }
 
     override fun stop() {
+        playRequested = false
         ruby_av_player_stop(avPlayer)
         stopProgressUpdates()
         mutableSnapshots.value = RubyPlayerSnapshot()
@@ -93,7 +109,13 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
     override fun setVolume(value: Float) {
         require(value in 0f..1f) { "volume must be between 0 and 1" }
         volume = value
-        ruby_av_player_set_volume(avPlayer, value)
+        ruby_av_player_set_volume(avPlayer, if (muted) 0f else value)
+        mutableSnapshots.value = snapshot(mutableSnapshots.value.state)
+    }
+
+    override fun setMuted(enabled: Boolean) {
+        muted = enabled
+        ruby_av_player_set_volume(avPlayer, if (enabled) 0f else volume)
         mutableSnapshots.value = snapshot(mutableSnapshots.value.state)
     }
 
@@ -111,6 +133,7 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
     }
 
     override fun restart() {
+        playRequested = true
         ruby_av_player_seek(avPlayer, 0.0)
         ruby_av_player_play(avPlayer)
         mutableSnapshots.value = snapshot(RubyPlaybackState.Playing, positionMs = 0L)
@@ -140,6 +163,7 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
         },
         bufferedPositionMs = ruby_av_player_buffered_position_seconds(avPlayer).toMilliseconds(),
         volume = volume,
+        muted = muted,
         playbackSpeed = playbackSpeed,
         looping = looping,
     )
@@ -149,7 +173,15 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
         progressJob = scope.launch {
             while (isActive) {
                 val current = mutableSnapshots.value
-                mutableSnapshots.value = snapshot(current.state)
+                val itemReady = ruby_av_player_item_status(avPlayer) == AV_PLAYER_ITEM_READY
+                val state = when {
+                    current.state == RubyPlaybackState.Error -> RubyPlaybackState.Error
+                    !itemReady -> RubyPlaybackState.Loading
+                    playRequested -> RubyPlaybackState.Playing
+                    current.state == RubyPlaybackState.Paused -> RubyPlaybackState.Paused
+                    else -> RubyPlaybackState.Ready
+                }
+                mutableSnapshots.value = snapshot(state)
                 delay(PROGRESS_UPDATE_INTERVAL_MS)
             }
         }
@@ -164,6 +196,7 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
         if (isFinite() && this > 0.0) (this * 1_000.0).toLong() else 0L
 
     private companion object {
+        const val AV_PLAYER_ITEM_READY = 1
         const val PROGRESS_UPDATE_INTERVAL_MS = 250L
     }
 }
