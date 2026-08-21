@@ -1,13 +1,25 @@
 package io.github.waiphyoaung.rubykmpplayer
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import platform.AVFoundation.AVPlayer
 import platform.AVKit.AVPlayerViewController
 import platform.Foundation.NSURL
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_load
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_configure_audio_session
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_buffered_position_seconds
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_duration_seconds
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_pause
+import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_position_seconds
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_play
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_seek
 import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_set_rate
@@ -17,12 +29,18 @@ import io.github.waiphyoaung.rubykmpplayer.bridge.ruby_av_player_stop
 
 @OptIn(ExperimentalForeignApi::class)
 public class RubyIosVideoPlayerController : RubyVideoPlayerController {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableSnapshots = MutableStateFlow(RubyPlayerSnapshot())
+    private var progressJob: Job? = null
     private var volume = 1f
     private var playbackSpeed = 1f
     private var looping = false
 
     public val avPlayer: AVPlayer = AVPlayer()
+
+    init {
+        ruby_av_player_configure_audio_session()
+    }
 
     override val snapshots: StateFlow<RubyPlayerSnapshot> = mutableSnapshots
 
@@ -46,6 +64,7 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
         ruby_av_player_set_rate(avPlayer, playbackSpeed)
         ruby_av_player_set_looping(avPlayer, looping)
         mutableSnapshots.value = snapshot(RubyPlaybackState.Ready)
+        startProgressUpdates()
         if (config.autoPlay) play()
     }
 
@@ -62,6 +81,7 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
 
     override fun stop() {
         ruby_av_player_stop(avPlayer)
+        stopProgressUpdates()
         mutableSnapshots.value = RubyPlayerSnapshot()
     }
 
@@ -98,6 +118,7 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
 
     override fun release() {
         stop()
+        scope.cancel()
     }
 
     public fun createPlayerViewController(): AVPlayerViewController =
@@ -111,11 +132,38 @@ public class RubyIosVideoPlayerController : RubyVideoPlayerController {
         positionMs: Long = mutableSnapshots.value.positionMs,
     ): RubyPlayerSnapshot = RubyPlayerSnapshot(
         state = state,
-        durationMs = mutableSnapshots.value.durationMs,
-        positionMs = positionMs,
-        bufferedPositionMs = positionMs,
+        durationMs = ruby_av_player_duration_seconds(avPlayer).toMilliseconds(),
+        positionMs = if (positionMs == mutableSnapshots.value.positionMs) {
+            ruby_av_player_position_seconds(avPlayer).toMilliseconds()
+        } else {
+            positionMs
+        },
+        bufferedPositionMs = ruby_av_player_buffered_position_seconds(avPlayer).toMilliseconds(),
         volume = volume,
         playbackSpeed = playbackSpeed,
         looping = looping,
     )
+
+    private fun startProgressUpdates() {
+        if (progressJob?.isActive == true) return
+        progressJob = scope.launch {
+            while (isActive) {
+                val current = mutableSnapshots.value
+                mutableSnapshots.value = snapshot(current.state)
+                delay(PROGRESS_UPDATE_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopProgressUpdates() {
+        progressJob?.cancel()
+        progressJob = null
+    }
+
+    private fun Double.toMilliseconds(): Long =
+        if (isFinite() && this > 0.0) (this * 1_000.0).toLong() else 0L
+
+    private companion object {
+        const val PROGRESS_UPDATE_INTERVAL_MS = 250L
+    }
 }
