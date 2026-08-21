@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "io.github.rubywai"
-version = "1.0.1"
+version = "1.1.0"
 
 val bridgeSource = layout.projectDirectory.file("src/nativeInterop/cinterop/RubyAVPlayerBridge.m")
 val bridgeOutputDirectory = layout.buildDirectory.dir("ruby-avplayer-bridge")
