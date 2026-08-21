@@ -15,5 +15,6 @@ public actual fun RubyNativePlayerSurface(
     UIKitViewController(
         modifier = modifier,
         factory = { iosController.createPlayerViewController() },
+        interactive = false,
     )
 }

@@ -18,5 +18,15 @@ public interface RubyVideoPlayerController {
 
     public fun seekTo(positionMs: Long)
 
+    public fun setVolume(value: Float)
+
+    public fun setMuted(enabled: Boolean)
+
+    public fun setPlaybackSpeed(value: Float)
+
+    public fun setLooping(enabled: Boolean)
+
+    public fun restart()
+
     public fun release()
 }
