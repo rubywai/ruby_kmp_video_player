@@ -85,6 +85,34 @@ public fun RubyVideoPlayer(
     )
 }
 
+/**
+ * Plays an ordered set of alternative video sources with a library-owned
+ * controller. Use this for explicit MP4 quality choices; HLS master playlists
+ * should use the single URL overload for automatic adaptation.
+ */
+@Composable
+public fun RubyVideoPlayer(
+    sources: RubyVideoSourceSet,
+    modifier: Modifier = Modifier,
+    config: RubyPlayerConfig = RubyPlayerConfig(),
+    controls: RubyPlayerControls = RubyPlayerControls(),
+) {
+    val controller = rememberRubyVideoPlayerController()
+
+    LaunchedEffect(controller, sources, config) {
+        controller.load(sources, config)
+    }
+    DisposableEffect(controller) {
+        onDispose(controller::release)
+    }
+
+    RubyVideoPlayer(
+        controller = controller,
+        modifier = modifier,
+        controls = controls,
+    )
+}
+
 /** Displays the shared player UI for a caller-managed platform controller. */
 @Composable
 public fun RubyVideoPlayer(
@@ -239,6 +267,7 @@ private fun ControlBar(
     fullscreen: Boolean,
     onInteraction: () -> Unit,
 ) {
+    var qualityMenuExpanded by remember { mutableStateOf(false) }
     Surface(color = Color.Black.copy(alpha = 0.58f)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
@@ -285,6 +314,31 @@ private fun ControlBar(
                     color = Color.White,
                     modifier = Modifier.weight(1f),
                 )
+            }
+            if (controls.showQualitySelector && snapshot.availableQualityLabels.size > 1) {
+                Box {
+                    IconButton(onClick = {
+                        onInteraction()
+                        qualityMenuExpanded = true
+                    }) {
+                        Text(snapshot.selectedQualityLabel ?: "Quality", color = Color.White)
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = qualityMenuExpanded,
+                        onDismissRequest = { qualityMenuExpanded = false },
+                    ) {
+                        snapshot.availableQualityLabels.forEach { label ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    onInteraction()
+                                    controller.selectQuality(label)
+                                    qualityMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
             }
             if (controls.showFullscreen) {
                 IconButton(onClick = {

@@ -38,6 +38,31 @@ class FakeRubyVideoPlayerControllerTest {
         controller.stop()
         assertEquals(RubyPlaybackState.Idle, controller.snapshots.value.state)
     }
+
+    @Test
+    fun fakeControllerSelectsAnExplicitQuality() {
+        val controller = FakeRubyVideoPlayerController()
+        val sources = RubyVideoSourceSet(
+            qualities = listOf(
+                RubyVideoQuality("240p", RubyVideoSource("https://example.com/240.mp4")),
+                RubyVideoQuality("720p", RubyVideoSource("https://example.com/720.mp4")),
+            ),
+            initialQualityLabel = "720p",
+        )
+
+        controller.load(sources, RubyPlayerConfig(autoPlay = true))
+        controller.seekTo(4_000L)
+        controller.setVolume(0.5f)
+        controller.setLooping(true)
+        controller.selectQuality("240p")
+
+        assertEquals(listOf("240p", "720p"), controller.snapshots.value.availableQualityLabels)
+        assertEquals("240p", controller.snapshots.value.selectedQualityLabel)
+        assertEquals(RubyPlaybackState.Playing, controller.snapshots.value.state)
+        assertEquals(4_000L, controller.snapshots.value.positionMs)
+        assertEquals(0.5f, controller.snapshots.value.volume)
+        assertEquals(true, controller.snapshots.value.looping)
+    }
 }
 
 private class FakeRubyVideoPlayerController : RubyVideoPlayerController {
@@ -49,6 +74,21 @@ private class FakeRubyVideoPlayerController : RubyVideoPlayerController {
             state = if (config.autoPlay) RubyPlaybackState.Playing else RubyPlaybackState.Ready,
             positionMs = config.startPositionMs,
         )
+    }
+
+    override fun load(sources: RubyVideoSourceSet, config: RubyPlayerConfig) {
+        val selected = sources.initialQuality()
+        load(selected.source, config)
+        mutableSnapshots.value = mutableSnapshots.value.copy(
+            availableQualityLabels = sources.qualities.map(RubyVideoQuality::label),
+            selectedQualityLabel = selected.label,
+        )
+    }
+
+    override fun selectQuality(label: String) {
+        if (label in mutableSnapshots.value.availableQualityLabels) {
+            mutableSnapshots.value = mutableSnapshots.value.copy(selectedQualityLabel = label)
+        }
     }
 
     override fun play() {

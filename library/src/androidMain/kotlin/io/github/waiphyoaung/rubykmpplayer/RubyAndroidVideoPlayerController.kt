@@ -6,6 +6,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -35,6 +37,10 @@ public class RubyAndroidVideoPlayerController(
     private var muted = false
     private var playbackSpeed = 1f
     private var looping = false
+    private var qualities: List<RubyVideoQuality> = emptyList()
+    private var selectedQualityLabel: String? = null
+    private var hlsQualityOverrides: Map<String, TrackSelectionOverride> = emptyMap()
+    private var isHlsSource = false
 
     public val exoPlayer: ExoPlayer = ExoPlayer.Builder(appContext).build()
 
@@ -62,13 +68,71 @@ public class RubyAndroidVideoPlayerController(
                         errorMessage = error.message,
                     )
                 }
+
+                override fun onTracksChanged(tracks: Tracks) {
+                    discoverHlsQualities(tracks)
+                    publishSnapshot()
+                }
             },
         )
     }
 
     override fun load(source: RubyVideoSource, config: RubyPlayerConfig) {
         scope.launch {
+            qualities = emptyList()
+            selectedQualityLabel = null
+            hlsQualityOverrides = emptyMap()
+            isHlsSource = source.isHls()
             loadOnMain(source, config)
+        }
+    }
+
+    override fun load(sources: RubyVideoSourceSet, config: RubyPlayerConfig) {
+        scope.launch {
+            val initialQuality = sources.initialQuality()
+            qualities = sources.qualities
+            selectedQualityLabel = initialQuality.label
+            hlsQualityOverrides = emptyMap()
+            isHlsSource = false
+            loadOnMain(initialQuality.source, config)
+        }
+    }
+
+    override fun selectQuality(label: String) {
+        scope.launch {
+            val quality = qualities.firstOrNull { it.label == label }
+            if (quality != null) {
+                if (quality.label == selectedQualityLabel) return@launch
+
+                val positionMs = exoPlayer.currentPosition.sanitizeTime()
+                val wasPlaying = exoPlayer.isPlaying
+                selectedQualityLabel = quality.label
+                userPaused = !wasPlaying
+                mutableSnapshots.value = currentSnapshot(state = RubyPlaybackState.Loading)
+
+                exoPlayer.setMediaSource(createMediaSource(quality.source))
+                exoPlayer.prepare()
+                if (positionMs > 0L) {
+                    exoPlayer.seekTo(positionMs)
+                }
+                if (wasPlaying) {
+                    exoPlayer.play()
+                } else {
+                    exoPlayer.pause()
+                }
+                publishSnapshot()
+                return@launch
+            }
+
+            if (!isHlsSource || (label != HLS_AUTO_LABEL && label !in hlsQualityOverrides)) return@launch
+            val parameters = exoPlayer.trackSelectionParameters.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            if (label != HLS_AUTO_LABEL) {
+                parameters.addOverride(checkNotNull(hlsQualityOverrides[label]))
+            }
+            exoPlayer.trackSelectionParameters = parameters.build()
+            selectedQualityLabel = label
+            publishSnapshot()
         }
     }
 
@@ -82,14 +146,11 @@ public class RubyAndroidVideoPlayerController(
         exoPlayer.repeatMode = if (looping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         exoPlayer.volume = if (muted) 0f else volume
         exoPlayer.setPlaybackSpeed(playbackSpeed)
+        if (isHlsSource) {
+            selectedQualityLabel = HLS_AUTO_LABEL
+        }
 
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setDefaultRequestProperties(source.headers)
-        val mediaSourceFactory = DefaultMediaSourceFactory(appContext)
-            .setDataSourceFactory(dataSourceFactory)
-        val mediaSource = mediaSourceFactory.createMediaSource(source.toMediaItem())
-
-        exoPlayer.setMediaSource(mediaSource)
+        exoPlayer.setMediaSource(createMediaSource(source))
         if (config.startPositionMs > 0L) {
             exoPlayer.seekTo(config.startPositionMs)
         }
@@ -210,6 +271,42 @@ public class RubyAndroidVideoPlayerController(
             .build()
     }
 
+    private fun createMediaSource(source: RubyVideoSource) =
+        DefaultMediaSourceFactory(appContext)
+            .setDataSourceFactory(
+                DefaultHttpDataSource.Factory().setDefaultRequestProperties(source.headers),
+            )
+            .createMediaSource(source.toMediaItem())
+
+    private fun discoverHlsQualities(tracks: Tracks) {
+        if (!isHlsSource || qualities.isNotEmpty()) return
+
+        hlsQualityOverrides = tracks.groups
+            .filter { it.type == C.TRACK_TYPE_VIDEO }
+            .flatMap { group ->
+                (0 until group.length).mapNotNull { index ->
+                    val height = group.getTrackFormat(index).height
+                    if (height > 0) "${height}p" to TrackSelectionOverride(group.mediaTrackGroup, listOf(index)) else null
+                }
+            }
+            .sortedBy { (label, _) -> label.removeSuffix("p").toInt() }
+            .toMap()
+
+        if (selectedQualityLabel !in availableQualityLabels()) {
+            selectedQualityLabel = HLS_AUTO_LABEL
+        }
+    }
+
+    private fun availableQualityLabels(): List<String> = when {
+        qualities.isNotEmpty() -> qualities.map(RubyVideoQuality::label)
+        hlsQualityOverrides.isNotEmpty() -> listOf(HLS_AUTO_LABEL) + hlsQualityOverrides.keys
+        else -> emptyList()
+    }
+
+    private fun RubyVideoSource.isHls(): Boolean =
+        contentType == RubyVideoContentType.Hls ||
+            (contentType == RubyVideoContentType.Auto && url.substringBefore('?').endsWith(".m3u8", ignoreCase = true))
+
     private fun startProgressUpdates() {
         if (progressJob?.isActive == true) return
         progressJob = scope.launch {
@@ -241,6 +338,8 @@ public class RubyAndroidVideoPlayerController(
         muted = muted,
         playbackSpeed = playbackSpeed,
         looping = looping,
+        availableQualityLabels = availableQualityLabels(),
+        selectedQualityLabel = selectedQualityLabel,
         errorMessage = errorMessage,
     )
 
@@ -259,5 +358,6 @@ public class RubyAndroidVideoPlayerController(
 
     private companion object {
         const val PROGRESS_UPDATE_INTERVAL_MS = 500L
+        const val HLS_AUTO_LABEL = "Auto"
     }
 }

@@ -1,35 +1,38 @@
-# Ruby KMP Player
+# Ruby Compose Multiplatform Player
 
-Ruby KMP Player is a reusable Kotlin Multiplatform video player library.
+A Compose Multiplatform video player for Android and iOS. Add one dependency
+to shared Compose code and call `RubyVideoPlayer`; the library creates and
+releases ExoPlayer on Android and AVPlayer on iOS internally.
 
-Repository: https://github.com/rubywai/ruby_kmp_video_player
+[Repository](https://github.com/rubywai/ruby_kmp_video_player) · Published:
+`io.github.rubywai:ruby-kmp-player:1.1.1` · Next release: `1.2.0`
 
-Current scope:
+## Features
 
-- Android playback through AndroidX Media3 ExoPlayer
-- iOS playback through AVPlayer
-- URL video sources
-- play, pause, stop, seek, and release controls
-- observable playback snapshots with `StateFlow`
-- shared Compose Multiplatform player UI
-- built-in play/pause, mute, seek bar, stop, status, buffering, error, and fullscreen controls
-- configurable control visibility
+- Compose Multiplatform API for Android and iOS
+- Progressive MP4 playback and explicit MP4 quality sources
+- HLS master playlists with dynamically discovered resolutions
+- Built-in `Auto` / quality selector, play, pause, mute, seek, stop, status,
+  buffering, error, auto-hide, and fullscreen controls
+- Optional controller API for advanced integrations
 
-Advanced Better Player style features such as cache, DRM, subtitles, playlist,
-Picture in Picture, notifications, and fully custom control slots are not part of v1.
+## Quick start
 
-## Common API
+The examples below use `1.2.0`, which is currently tested from Maven Local and
+will be available from Maven Central after the `v1.2.0` release is published.
 
-Add the library to the shared source set of your Compose Multiplatform app:
+<details open>
+<summary><strong>Shared Compose code · build.gradle.kts</strong></summary>
 
 ```kotlin
 commonMain.dependencies {
-    implementation("io.github.rubywai:ruby-kmp-player:1.1.1")
+    implementation("io.github.rubywai:ruby-kmp-player:1.2.0")
 }
 ```
+</details>
 
-Then play a URL directly from shared Compose code. The library creates, loads,
-observes, and releases the Android or iOS player internally.
+<details open>
+<summary><strong>Shared Compose code · App.kt</strong></summary>
 
 ```kotlin
 @Composable
@@ -39,124 +42,17 @@ fun App() {
     )
 }
 ```
+</details>
 
-No platform controller, `androidMain`, `iosMain`, or native interop code is
-required in the consuming application.
+The consuming app does not create a platform controller or add source files in
+`androidMain`, `iosMain`, or `nativeInterop`.
 
-### Configuration
+## Platform setup
 
-```kotlin
-val source = RubyVideoSource(
-    url = "https://example.com/video.mp4",
-)
+<details>
+<summary><strong>Android · AndroidManifest.xml</strong></summary>
 
-val config = RubyPlayerConfig(
-    autoPlay = true,
-    looping = false,
-    startPositionMs = 0L,
-    volume = 1f,
-    playbackSpeed = 1f,
-)
-```
-
-`volume` must be between `0f` and `1f`. `playbackSpeed` must be greater than
-`0f`, and `startPositionMs` must not be negative. These options are applied by
-the Android ExoPlayer and iOS AVPlayer implementations.
-
-The controller API remains available for advanced integrations that need
-direct playback commands, custom headers, or snapshot observation.
-
-```kotlin
-interface RubyVideoPlayerController {
-    val snapshots: StateFlow<RubyPlayerSnapshot>
-
-    fun load(source: RubyVideoSource, config: RubyPlayerConfig = RubyPlayerConfig())
-    fun play()
-    fun pause()
-    fun stop()
-    fun seekTo(positionMs: Long)
-    fun setVolume(value: Float)
-    fun setMuted(enabled: Boolean)
-    fun setPlaybackSpeed(value: Float)
-    fun setLooping(enabled: Boolean)
-    fun restart()
-    fun release()
-}
-```
-
-Playback settings can also be changed while the current item is loaded. The
-controller exposes the current values through `RubyPlayerSnapshot`.
-
-```kotlin
-controller.setVolume(0.5f)
-controller.setPlaybackSpeed(1.25f)
-controller.setLooping(true)
-controller.restart()
-```
-
-## Shared Compose Player
-
-The URL overload can be configured entirely from shared code:
-
-```kotlin
-RubyVideoPlayer(
-    url = "https://example.com/video.mp4",
-    modifier = Modifier.fillMaxWidth().height(240.dp),
-    config = RubyPlayerConfig(autoPlay = true),
-    controls = RubyPlayerControls(
-        showPlayPause = true,
-        showMute = true,
-        showSeekBar = true,
-        showStop = false,
-        showFullscreen = true,
-        showStatus = true,
-        autoHide = true,
-        autoHideDelayMillis = 5_000L,
-    ),
-)
-```
-
-Advanced users can pass a caller-managed `RubyVideoPlayerController` to the
-existing controller overload instead.
-
-When enabled, controls hide after five seconds while playback is active. A
-tap on the video shows or hides them, and any control interaction resets the
-timer. Controls remain visible while loading, paused, or displaying an error.
-
-### Fullscreen and controls
-
-Fullscreen is enabled by default. The player opens a borderless fullscreen
-dialog, hides the Android system bars, and requests landscape orientation on
-Android and iOS. Closing fullscreen restores the previous Android system UI
-and orientation and requests portrait orientation on iOS.
-
-```kotlin
-RubyVideoPlayer(
-    url = "https://example.com/video.mp4",
-    controls = RubyPlayerControls(
-        showFullscreen = true,
-        showPlayPause = true,
-        showMute = true,
-        showSeekBar = true,
-        showStop = false,
-        showStatus = true,
-        autoHide = true,
-        autoHideDelayMillis = 5_000L,
-    ),
-)
-```
-
-Set `showFullscreen = false` when the host application manages fullscreen or
-orientation itself. `RubyPlayerControls` controls button visibility and
-auto-hide behavior; playback settings such as autoplay, looping, volume, and
-speed belong in `RubyPlayerConfig`.
-
-## Android
-
-### Consumer setup
-
-Remote video playback requires internet permission in the Android application
-manifest, usually `androidApp/src/main/AndroidManifest.xml`:
+Remote playback requires the internet permission:
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -168,8 +64,12 @@ manifest, usually `androidApp/src/main/AndroidManifest.xml`:
 </manifest>
 ```
 
-To avoid recreating the activity when the built-in fullscreen control changes
-orientation, let the activity handle orientation and screen-size changes:
+Use HTTPS video URLs. Cleartext HTTP is blocked by default on modern Android
+versions; if it is unavoidable, add a narrowly scoped Network Security
+Configuration for the required domain.
+
+For the built-in fullscreen button, avoid recreating the activity when the
+orientation changes:
 
 ```xml
 <activity
@@ -177,66 +77,16 @@ orientation, let the activity handle orientation and screen-size changes:
     android:configChanges="orientation|screenSize"
     android:exported="true" />
 ```
+</details>
 
-Use HTTPS video URLs. Android blocks cleartext HTTP traffic by default on
-modern target SDKs; if HTTP is unavoidable, configure a narrowly scoped
-Network Security Configuration in the consuming application.
+<details>
+<summary><strong>iOS · Info.plist</strong></summary>
 
-The repository includes a runnable Compose Multiplatform example under
-`example/`. The Android launcher is `:example:androidApp`, and the shared
-Compose application is `:example:composeApp`.
+HTTPS URLs work with the default App Transport Security policy. If a server is
+HTTP-only, add a domain-specific ATS exception; avoid broad
+`NSAllowsArbitraryLoads` exceptions.
 
-```bash
-./gradlew :example:androidApp:installDebug
-```
-
-For advanced controller-based use on Android:
-
-```kotlin
-val controller = RubyAndroidVideoPlayerController(context)
-controller.load(source, config)
-```
-
-## Compose Multiplatform Example
-
-The Android and iOS examples use the same library-provided `RubyVideoPlayer`
-composable from shared code. The library supplies the native video surface
-through platform implementations.
-
-Build the Android example with:
-
-```bash
-./gradlew :example:androidApp:installDebug
-```
-
-Build the iOS simulator framework with:
-
-```bash
-./gradlew :example:composeApp:linkDebugFrameworkIosSimulatorArm64
-```
-
-Then follow [`iosApp/README.md`](iosApp/README.md) to open the
-Xcode host app and run the generated framework.
-
-## iOS
-
-### Requirements
-
-- macOS with Xcode installed and selected as the active developer directory
-- Xcode command-line tools available through `xcodebuild` and `xcrun`
-- An iOS 15 or newer SDK
-- A compatible iOS Simulator runtime when running on Simulator
-- An Apple Developer team and a registered device when running on a physical iPhone or iPad
-
-### Consumer setup
-
-HTTPS video URLs work with the default App Transport Security policy. Plain
-HTTP URLs require an appropriate domain-specific ATS exception in the
-consumer's `Info.plist`; broad `NSAllowsArbitraryLoads` exceptions are not
-recommended.
-
-For the built-in fullscreen button to rotate the player, include portrait and
-landscape orientations in the iOS application `Info.plist`:
+To use the built-in fullscreen button, support portrait and landscape:
 
 ```xml
 <key>UISupportedInterfaceOrientations</key>
@@ -253,43 +103,111 @@ landscape orientations in the iOS application `Info.plist`:
 </array>
 ```
 
-If the host app intentionally supports portrait only, set
-`RubyPlayerControls(showFullscreen = false)` and manage fullscreen in the host.
-Consumers do not need to add native interop files; the published iOS artifacts
-contain the AVPlayer implementation and bridge. The iOS application target
-must link Apple's `CoreMedia` system framework because the embedded bridge uses
-it for playback timing. In Xcode, add `CoreMedia.framework` under the target's
-**General > Frameworks, Libraries, and Embedded Content** section.
+The published iOS artifact contains the AVPlayer implementation and bridge.
+The Xcode application target must link Apple's `CoreMedia.framework` under
+**General → Frameworks, Libraries, and Embedded Content**.
+</details>
 
-The project uses a manually maintained Xcode host app because the shared
-Compose framework is generated by Gradle. Build the framework before opening
-the Xcode project:
-
-```bash
-./gradlew :example:composeApp:assembleDebugXCFramework --no-configuration-cache
-```
-
-Then open `iosApp/RubyKmpPlayerExample.xcodeproj`, select the
-`RubyKmpPlayerExample` scheme, choose a simulator or connected device, and run.
-
-If Xcode reports that no compatible Simulator runtime exists for the selected
-SDK, install the matching platform in Xcode or run:
-
-```bash
-xcodebuild -downloadPlatform iOS
-```
-
-For a physical device, select your Apple Developer team under the Xcode target
-Signing & Capabilities settings. The example requests network access because
-the default video is loaded from an HTTPS URL.
-
-For advanced controller-based use on iOS, the implementation uses AVPlayer:
+## Player configuration
 
 ```kotlin
-val controller = RubyIosVideoPlayerController()
-controller.load(source, config)
+RubyVideoPlayer(
+    url = "https://example.com/video.mp4",
+    modifier = Modifier.fillMaxWidth().height(240.dp),
+    config = RubyPlayerConfig(
+        autoPlay = true,
+        looping = false,
+        startPositionMs = 0L,
+        volume = 1f,
+        playbackSpeed = 1f,
+    ),
+    controls = RubyPlayerControls(
+        showPlayPause = true,
+        showMute = true,
+        showSeekBar = true,
+        showStop = false,
+        showQualitySelector = true,
+        showFullscreen = true,
+        showStatus = true,
+        autoHide = true,
+        autoHideDelayMillis = 5_000L,
+    ),
+)
 ```
 
-The shared Compose controls own play/pause, seeking, status, buffering, error,
-fullscreen, and auto-hide behavior. Native AVPlayer playback controls are
-disabled to avoid duplicate controls.
+`volume` must be from `0f` to `1f`; `playbackSpeed` must be greater than
+`0f`; and `startPositionMs` must not be negative. Set
+`showFullscreen = false` when the app manages fullscreen itself, or
+`showQualitySelector = false` to hide the built-in quality menu.
+
+## Resolutions and quality switching
+
+### MP4 sources
+
+Use `RubyVideoSourceSet` when the app owns separate progressive URLs. The
+selected source changes while preserving playback position and runtime settings.
+
+```kotlin
+val qualities = RubyVideoSourceSet(
+    qualities = listOf(
+        RubyVideoQuality("240p", RubyVideoSource("https://cdn.example.com/video-240.mp4")),
+        RubyVideoQuality("360p", RubyVideoSource("https://cdn.example.com/video-360.mp4")),
+        RubyVideoQuality("720p", RubyVideoSource("https://cdn.example.com/video-720.mp4")),
+    ),
+    initialQualityLabel = "360p",
+)
+
+RubyVideoPlayer(sources = qualities)
+```
+
+Labels are exact. If `initialQualityLabel` is null, missing, or misspelled,
+the first quality is selected.
+
+### HLS master playlist
+
+Provide one master playlist URL. Do not enumerate individual rendition URLs.
+After the playlist loads, the quality menu shows `Auto` and every discovered
+resolution.
+
+```kotlin
+RubyVideoPlayer(
+    url = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+)
+```
+
+Choose a resolution to constrain playback to that rendition. Choose `Auto` to
+restore adaptive bitrate playback. Android pins the selected HLS track; iOS
+uses the selected resolution as AVPlayer's maximum, so AVPlayer can choose a
+lower rendition when network conditions require it.
+
+## Advanced controller API
+
+For custom headers, direct commands, or observing `StateFlow` snapshots, keep
+using the controller-based API:
+
+```kotlin
+val controller: RubyVideoPlayerController = /* platform controller */
+controller.load(
+    RubyVideoSource(
+        url = "https://example.com/video.mp4",
+        headers = mapOf("Authorization" to "Bearer token"),
+    ),
+)
+controller.setPlaybackSpeed(1.25f)
+```
+
+Most Compose Multiplatform apps should use the controller-free
+`RubyVideoPlayer(url = ...)` or `RubyVideoPlayer(sources = ...)` overloads.
+
+## Example application
+
+The repository's `example/` app consumes the Maven-coordinate dependency from
+shared Compose code. It includes MP4, HLS master-playlist, and MP4 quality
+source screens.
+
+```bash
+./gradlew -I build/local-repo.init.gradle :example:androidApp:installDebug
+./gradlew :example:composeApp:assembleDebugXCFramework
+```
+
+For the Xcode host instructions, see [iosApp/README.md](iosApp/README.md).

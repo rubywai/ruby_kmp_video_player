@@ -141,3 +141,49 @@ double ruby_av_player_buffered_position_seconds(AVPlayer *player) {
 int ruby_av_player_item_status(AVPlayer *player) {
     return (int)player.currentItem.status;
 }
+
+static AVAssetVariant *ruby_av_player_hls_variant(AVPlayer *player, int index) {
+    if (@available(iOS 15.0, *)) {
+        AVURLAsset *asset = (AVURLAsset *)player.currentItem.asset;
+        NSArray<AVAssetVariant *> *variants = asset.variants;
+        if (index >= 0 && index < (int)variants.count) {
+            return variants[(NSUInteger)index];
+        }
+    }
+    return nil;
+}
+
+int ruby_av_player_hls_variant_count(AVPlayer *player) {
+    if (@available(iOS 15.0, *)) {
+        AVURLAsset *asset = (AVURLAsset *)player.currentItem.asset;
+        return (int)asset.variants.count;
+    }
+    return 0;
+}
+
+int ruby_av_player_hls_variant_width(AVPlayer *player, int index) {
+    AVAssetVariant *variant = ruby_av_player_hls_variant(player, index);
+    return variant == nil ? 0 : (int)variant.videoAttributes.presentationSize.width;
+}
+
+int ruby_av_player_hls_variant_height(AVPlayer *player, int index) {
+    AVAssetVariant *variant = ruby_av_player_hls_variant(player, index);
+    return variant == nil ? 0 : (int)variant.videoAttributes.presentationSize.height;
+}
+
+double ruby_av_player_hls_variant_peak_bitrate(AVPlayer *player, int index) {
+    AVAssetVariant *variant = ruby_av_player_hls_variant(player, index);
+    return variant == nil ? 0.0 : variant.peakBitRate;
+}
+
+void ruby_av_player_select_hls_variant(AVPlayer *player, int width, int height, double peakBitrate) {
+    AVPlayerItem *item = player.currentItem;
+    item.preferredMaximumResolution = CGSizeMake(width, height);
+    item.preferredPeakBitRate = peakBitrate;
+}
+
+void ruby_av_player_select_hls_auto(AVPlayer *player) {
+    AVPlayerItem *item = player.currentItem;
+    item.preferredMaximumResolution = CGSizeZero;
+    item.preferredPeakBitRate = 0.0;
+}

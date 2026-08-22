@@ -26,12 +26,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.waiphyoaung.rubykmpplayer.RubyPlayerConfig
 import io.github.waiphyoaung.rubykmpplayer.RubyPlayerControls
+import io.github.waiphyoaung.rubykmpplayer.RubyVideoQuality
 import io.github.waiphyoaung.rubykmpplayer.RubyVideoPlayer
+import io.github.waiphyoaung.rubykmpplayer.RubyVideoSource
+import io.github.waiphyoaung.rubykmpplayer.RubyVideoSourceSet
 
 private enum class ExampleScreen {
     Home,
     Mp4,
     Hls,
+    Quality,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,11 +47,15 @@ public fun RubyPlayerScreen() {
         ExampleScreen.Home -> RubyPlayerHomeScreen(
             onOpenVideo = { screen = ExampleScreen.Mp4 },
             onOpenHls = { screen = ExampleScreen.Hls },
+            onOpenQuality = { screen = ExampleScreen.Quality },
         )
         ExampleScreen.Mp4 -> RubyVideoExampleScreen(
             onBack = { screen = ExampleScreen.Home },
         )
         ExampleScreen.Hls -> RubyHlsExampleScreen(
+            onBack = { screen = ExampleScreen.Home },
+        )
+        ExampleScreen.Quality -> RubyQualityExampleScreen(
             onBack = { screen = ExampleScreen.Home },
         )
     }
@@ -58,6 +66,7 @@ public fun RubyPlayerScreen() {
 private fun RubyPlayerHomeScreen(
     onOpenVideo: () -> Unit,
     onOpenHls: () -> Unit,
+    onOpenQuality: () -> Unit,
 ) {
     MaterialTheme {
         Scaffold(
@@ -74,6 +83,9 @@ private fun RubyPlayerHomeScreen(
                 Button(onClick = onOpenHls, modifier = Modifier.fillMaxWidth()) {
                     Text("2. HLS")
                 }
+                Button(onClick = onOpenQuality, modifier = Modifier.fillMaxWidth()) {
+                    Text("3. Quality sources")
+                }
             }
         }
     }
@@ -87,7 +99,7 @@ private fun RubyVideoExampleScreen(
         onBack = onBack,
         title = "MP4 Player",
         label = "Progressive video",
-        initialUrl = DEFAULT_VIDEO_URL,
+        url = DEFAULT_VIDEO_URL,
     )
 }
 
@@ -98,8 +110,20 @@ private fun RubyHlsExampleScreen(
     RubyPlayerDemoScreen(
         onBack = onBack,
         title = "HLS Player",
-        label = "HTTP Live Streaming",
-        initialUrl = DEFAULT_HLS_URL,
+        label = "HLS master playlist with automatic rendition discovery",
+        url = DEFAULT_HLS_URL,
+    )
+}
+
+@Composable
+private fun RubyQualityExampleScreen(
+    onBack: () -> Unit,
+) {
+    RubyPlayerDemoScreen(
+        onBack = onBack,
+        title = "Quality Sources",
+        label = "Switch between explicit MP4 sources",
+        sources = DEFAULT_MP4_QUALITIES,
     )
 }
 
@@ -109,7 +133,8 @@ private fun RubyPlayerDemoScreen(
     onBack: () -> Unit,
     title: String,
     label: String,
-    initialUrl: String,
+    url: String? = null,
+    sources: RubyVideoSourceSet? = null,
 ) {
     MaterialTheme {
         Scaffold(
@@ -120,12 +145,22 @@ private fun RubyPlayerDemoScreen(
             Column(Modifier.padding(padding).padding(horizontal = 20.dp, vertical = 12.dp)) {
                 Text(label, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
-                RubyVideoPlayer(
-                    url = initialUrl,
-                    modifier = Modifier.fillMaxWidth().height(220.dp),
-                    config = RubyPlayerConfig(autoPlay = true),
-                    controls = RubyPlayerControls(),
-                )
+                val modifier = Modifier.fillMaxWidth().height(220.dp)
+                val config = RubyPlayerConfig(autoPlay = true)
+                when {
+                    sources != null -> RubyVideoPlayer(
+                        sources = sources,
+                        modifier = modifier,
+                        config = config,
+                        controls = RubyPlayerControls(),
+                    )
+                    url != null -> RubyVideoPlayer(
+                        url = url,
+                        modifier = modifier,
+                        config = config,
+                        controls = RubyPlayerControls(),
+                    )
+                }
             }
         }
     }
@@ -149,6 +184,20 @@ private fun RubyTopBar(
         colors = TopAppBarDefaults.topAppBarColors(),
     )
 }
+
+private val DEFAULT_MP4_QUALITIES = RubyVideoSourceSet(
+    qualities = listOf(
+        RubyVideoQuality(
+            label = "360p",
+            source = RubyVideoSource("https://placeholdervideo.dev/640x360"),
+        ),
+        RubyVideoQuality(
+            label = "720p",
+            source = RubyVideoSource("https://placeholdervideo.dev/1280x720"),
+        ),
+    ),
+    initialQualityLabel = "720p",
+)
 
 private const val DEFAULT_VIDEO_URL =
     "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"

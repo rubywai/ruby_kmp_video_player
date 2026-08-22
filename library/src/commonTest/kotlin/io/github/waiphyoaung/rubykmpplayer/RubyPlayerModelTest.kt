@@ -38,4 +38,29 @@ class RubyPlayerModelTest {
         assertEquals(RubyVideoContentType.Auto, source.contentType)
         assertEquals(emptyMap(), source.headers)
     }
+
+    @Test
+    fun sourceSetUsesMatchingInitialQualityOrTheFirstQuality() {
+        val qualities = listOf(
+            RubyVideoQuality("240p", RubyVideoSource("https://example.com/240.mp4")),
+            RubyVideoQuality("720p", RubyVideoSource("https://example.com/720.mp4")),
+        )
+
+        assertEquals("720p", RubyVideoSourceSet(qualities, "720p").initialQuality().label)
+        assertEquals("240p", RubyVideoSourceSet(qualities).initialQuality().label)
+        assertEquals("240p", RubyVideoSourceSet(qualities, "1080p").initialQuality().label)
+    }
+
+    @Test
+    fun sourceSetRejectsEmptyOrDuplicateQualityLabels() {
+        assertFailsWith<IllegalArgumentException> { RubyVideoSourceSet(emptyList()) }
+        assertFailsWith<IllegalArgumentException> {
+            RubyVideoSourceSet(
+                listOf(
+                    RubyVideoQuality("720p", RubyVideoSource("https://example.com/a.mp4")),
+                    RubyVideoQuality("720p", RubyVideoSource("https://example.com/b.mp4")),
+                ),
+            )
+        }
+    }
 }
