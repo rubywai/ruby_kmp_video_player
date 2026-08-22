@@ -18,8 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,10 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.waiphyoaung.rubykmpplayer.RubyPlayerConfig
 import io.github.waiphyoaung.rubykmpplayer.RubyPlayerControls
-import io.github.waiphyoaung.rubykmpplayer.RubyVideoContentType
 import io.github.waiphyoaung.rubykmpplayer.RubyVideoPlayer
-import io.github.waiphyoaung.rubykmpplayer.RubyVideoPlayerController
-import io.github.waiphyoaung.rubykmpplayer.RubyVideoSource
 
 private enum class ExampleScreen {
     Home,
@@ -41,7 +36,7 @@ private enum class ExampleScreen {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-public fun RubyPlayerScreen(controller: RubyVideoPlayerController) {
+public fun RubyPlayerScreen() {
     var screen by remember { mutableStateOf(ExampleScreen.Home) }
 
     when (screen) {
@@ -50,11 +45,9 @@ public fun RubyPlayerScreen(controller: RubyVideoPlayerController) {
             onOpenHls = { screen = ExampleScreen.Hls },
         )
         ExampleScreen.Mp4 -> RubyVideoExampleScreen(
-            controller = controller,
             onBack = { screen = ExampleScreen.Home },
         )
         ExampleScreen.Hls -> RubyHlsExampleScreen(
-            controller = controller,
             onBack = { screen = ExampleScreen.Home },
         )
     }
@@ -88,54 +81,36 @@ private fun RubyPlayerHomeScreen(
 
 @Composable
 private fun RubyVideoExampleScreen(
-    controller: RubyVideoPlayerController,
     onBack: () -> Unit,
 ) {
     RubyPlayerDemoScreen(
-        controller = controller,
         onBack = onBack,
         title = "MP4 Player",
         label = "Progressive video",
         initialUrl = DEFAULT_VIDEO_URL,
-        contentType = RubyVideoContentType.Progressive,
     )
 }
 
 @Composable
 private fun RubyHlsExampleScreen(
-    controller: RubyVideoPlayerController,
     onBack: () -> Unit,
 ) {
     RubyPlayerDemoScreen(
-        controller = controller,
         onBack = onBack,
         title = "HLS Player",
         label = "HTTP Live Streaming",
         initialUrl = DEFAULT_HLS_URL,
-        contentType = RubyVideoContentType.Hls,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RubyPlayerDemoScreen(
-    controller: RubyVideoPlayerController,
     onBack: () -> Unit,
     title: String,
     label: String,
     initialUrl: String,
-    contentType: RubyVideoContentType,
 ) {
-    LaunchedEffect(initialUrl, contentType) {
-        controller.load(
-            RubyVideoSource(initialUrl, contentType = contentType),
-            RubyPlayerConfig(autoPlay = true),
-        )
-    }
-    DisposableEffect(Unit) {
-        onDispose { controller.stop() }
-    }
-
     MaterialTheme {
         Scaffold(
             topBar = {
@@ -146,8 +121,9 @@ private fun RubyPlayerDemoScreen(
                 Text(label, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
                 RubyVideoPlayer(
-                    controller = controller,
+                    url = initialUrl,
                     modifier = Modifier.fillMaxWidth().height(220.dp),
+                    config = RubyPlayerConfig(autoPlay = true),
                     controls = RubyPlayerControls(),
                 )
             }

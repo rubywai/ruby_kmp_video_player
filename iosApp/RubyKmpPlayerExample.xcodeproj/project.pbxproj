@@ -171,8 +171,6 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/../example/composeApp/build/xcode-frameworks/debug",
 				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(PROJECT_DIR)/../library/build/ruby-avplayer-bridge/arm64-apple-ios15.0";
-				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(PROJECT_DIR)/../library/build/ruby-avplayer-bridge/arm64-apple-ios15.0-simulator";
 				INFOPLIST_FILE = Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -183,7 +181,6 @@
 					"$(inherited)",
 					"-framework",
 					RubyExampleComposeApp,
-					"-lRubyAVPlayerBridge",
 					"-framework",
 					CoreMedia,
 				);
@@ -207,8 +204,6 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/../example/composeApp/build/xcode-frameworks/debug",
 				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(PROJECT_DIR)/../library/build/ruby-avplayer-bridge/arm64-apple-ios15.0";
-				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(PROJECT_DIR)/../library/build/ruby-avplayer-bridge/arm64-apple-ios15.0-simulator";
 				INFOPLIST_FILE = Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -219,7 +214,6 @@
 					"$(inherited)",
 					"-framework",
 					RubyExampleComposeApp,
-					"-lRubyAVPlayerBridge",
 					"-framework",
 					CoreMedia,
 				);

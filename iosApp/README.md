@@ -25,12 +25,11 @@ The generated framework is:
 example/composeApp/build/xcode-frameworks/debug/RubyExampleComposeApp.xcframework
 ```
 
-The Gradle task also builds the native AVPlayer bridge archives:
-
-```text
-library/build/ruby-avplayer-bridge/arm64-apple-ios15.0/libRubyAVPlayerBridge.a
-library/build/ruby-avplayer-bridge/arm64-apple-ios15.0-simulator/libRubyAVPlayerBridge.a
-```
+The example consumes `io.github.rubywai:ruby-kmp-player:1.1.1` from Maven
+Central. The published iOS artifact contains its AVPlayer implementation and
+native bridge, so the application does not provide native interop files or
+link a separate bridge archive. The iOS host target links Apple's `CoreMedia`
+system framework, which the embedded bridge uses for playback timing.
 
 ## Run In Xcode
 
