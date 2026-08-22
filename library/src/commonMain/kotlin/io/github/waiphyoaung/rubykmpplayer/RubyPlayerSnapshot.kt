@@ -9,5 +9,7 @@ public data class RubyPlayerSnapshot(
     val muted: Boolean = false,
     val playbackSpeed: Float = 1f,
     val looping: Boolean = false,
+    val availableQualityLabels: List<String> = emptyList(),
+    val selectedQualityLabel: String? = null,
     val errorMessage: String? = null,
 )

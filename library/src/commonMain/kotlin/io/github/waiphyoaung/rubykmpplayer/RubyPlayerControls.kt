@@ -5,6 +5,7 @@ public data class RubyPlayerControls(
     val showMute: Boolean = true,
     val showSeekBar: Boolean = true,
     val showStop: Boolean = true,
+    val showQualitySelector: Boolean = true,
     val showFullscreen: Boolean = true,
     val showStatus: Boolean = true,
     val autoHide: Boolean = true,

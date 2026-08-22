@@ -10,6 +10,14 @@ public interface RubyVideoPlayerController {
         config: RubyPlayerConfig = RubyPlayerConfig(),
     )
 
+    public fun load(
+        sources: RubyVideoSourceSet,
+        config: RubyPlayerConfig = RubyPlayerConfig(),
+    )
+
+    /** Switches to a labelled source from the currently loaded source set. */
+    public fun selectQuality(label: String)
+
     public fun play()
 
     public fun pause()

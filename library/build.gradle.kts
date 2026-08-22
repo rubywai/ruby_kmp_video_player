@@ -10,9 +10,10 @@ plugins {
 }
 
 group = "io.github.rubywai"
-version = "1.1.1"
+version = "1.2.0"
 
 val bridgeSource = layout.projectDirectory.file("src/nativeInterop/cinterop/RubyAVPlayerBridge.m")
+val bridgeHeader = layout.projectDirectory.file("src/nativeInterop/cinterop/RubyAVPlayerBridge.h")
 val bridgeOutputDirectory = layout.buildDirectory.dir("ruby-avplayer-bridge")
 
 fun registerRubyAvPlayerBridgeTask(
@@ -25,6 +26,7 @@ fun registerRubyAvPlayerBridgeTask(
     val staticLibrary = outputDirectory.resolve("$target/libRubyAVPlayerBridge.a")
 
     outputs.file(staticLibrary)
+    inputs.files(bridgeSource, bridgeHeader)
     doFirst {
         outputDirectory.resolve(target).mkdirs()
         staticLibrary.delete()

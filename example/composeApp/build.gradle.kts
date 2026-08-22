@@ -41,7 +41,7 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.rubywai:ruby-kmp-player:1.1.1")
+            implementation("io.github.rubywai:ruby-kmp-player:1.2.0")
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
